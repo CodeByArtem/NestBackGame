@@ -1,15 +1,14 @@
-import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common';
+import { INestApplication, Injectable, OnModuleInit, OnApplicationShutdown } from '@nestjs/common';
 import { PrismaClient } from '@prisma/client';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit {
+export class PrismaService extends PrismaClient implements OnModuleInit, OnApplicationShutdown {
     async onModuleInit() {
         await this.$connect();
     }
 
-    async enableShutdownHooks(app: INestApplication) {
-        this.$on('beforeExit', async () => {
-            await app.close();
-        });
+    // Обработчик для корректного завершения работы
+    async onApplicationShutdown() {
+        await this.$disconnect();  // Правильный метод для отключения Prisma от базы данных
     }
 }
