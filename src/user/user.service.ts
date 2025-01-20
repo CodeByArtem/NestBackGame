@@ -5,8 +5,7 @@ import { genSaltSync, hashSync } from 'bcrypt';
 
 @Injectable()
 export class UserService {
-    constructor(private readonly prismaService: PrismaService) {
-    }
+    constructor(private readonly prismaService: PrismaService) {}
 
     save(user: Partial<User>) {
         const hashedPassword = this.hashPassword(user.password);
@@ -28,7 +27,7 @@ export class UserService {
     }
 
     delete(id: string) {
-        return this.prismaService.user.delete({ where: { id } });
+        return this.prismaService.user.delete({ where: { id }, select: { id: true } });
     }
 
     private hashPassword(password: string) {
