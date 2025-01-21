@@ -5,12 +5,15 @@ import {
     Get,
     Param,
     ParseUUIDPipe,
+    UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from '@user/user.service';
 import { UserResponse } from '@user/response';
-import { CurrentUser } from '@common/dicorators';
+import { CurrentUser, Roles } from '@common/dicorators';
 import { JwtPayload } from '@auth/interfaces';
+import { RolesGuard } from '@auth/guard/role.guard';
+import { Role } from '@prisma/client';
 
 @Controller('user')
 export class UserController {
@@ -30,5 +33,12 @@ export class UserController {
         user: JwtPayload,
     ) {
         return this.userService.delete(id, user);
+    }
+
+    @UseGuards(RolesGuard)
+    @Roles(Role.ADMIN)
+    @Get()
+    me(@CurrentUser() user: JwtPayload) {
+        return user;
     }
 }
