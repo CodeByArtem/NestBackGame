@@ -6,17 +6,25 @@ import {
     Get,
     HttpStatus,
     Post,
+    Query,
+    Req,
     Res,
     UnauthorizedException,
+    UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Response } from 'express';
+import { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterDto } from './dto';
 import { Tokens } from './interfaces';
 import { Cookie, Public, UserAgent } from '@common/dicorators';
 import { UserResponse } from '@user/response';
+
+import { HttpService } from '@nestjs/axios';
+import { GoogleGuard } from '@auth/guard/google.guard';
+import { handleTimeoutAndErrors } from '@common/helpers';
+import { map, mergeMap } from 'rxjs';
 
 const REFRESH_TOKEN = 'refreshtoken';
 
@@ -26,6 +34,7 @@ export class AuthController {
     constructor(
         private readonly authService: AuthService,
         private readonly configService: ConfigService,
+        private readonly httpService: HttpService,
     ) {}
 
     @UseInterceptors(ClassSerializerInterceptor)
@@ -88,5 +97,27 @@ export class AuthController {
             path: '/',
         });
         res.status(HttpStatus.CREATED).json({ accessToken: tokens.accessToken });
+    }
+
+    @UseGuards(GoogleGuard)
+    @Get('google')
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    googleAuth() {}
+
+    @UseGuards(GoogleGuard)
+    @Get('google/callback')
+    googleAuthCallback(@Req() req: Request, @Res() res: Response) {
+        const token = req.user['accessToken'];
+        return res.redirect(`http://localhost:3000/api/auth/success?token=${token}`);
+    }
+
+    @Get('success')
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    success(@Query('token') token: string, @UserAgent() agent: string, @Res() res: Response) {
+        return this.httpService.get(`https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${token}`).pipe(
+            mergeMap(({ data: { email } }) => this.authService.googleAuth(email, agent)),
+            map((data) => this.setRefreshTokenToCookies(data, res)),
+            handleTimeoutAndErrors(),
+        );
     }
 }

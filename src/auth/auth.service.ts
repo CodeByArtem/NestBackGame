@@ -1,8 +1,15 @@
-import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+    ConflictException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Logger,
+    UnauthorizedException,
+} from '@nestjs/common';
 import { UserService } from '@user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@prisma/prisma.service';
-import { Token, User } from '@prisma/client';
+import { Provider, Token, User } from '@prisma/client';
 import { compareSync } from 'bcrypt';
 import { add } from 'date-fns';
 import { v4 } from 'uuid';
@@ -14,7 +21,7 @@ export class AuthService {
     private readonly logger = new Logger('AuthService.name');
 
     constructor(
-        private readonly useService: UserService,
+        private readonly userService: UserService,
         private readonly jwtService: JwtService,
         private readonly prismaService: PrismaService,
     ) {}
@@ -32,26 +39,26 @@ export class AuthService {
         if (new Date(token.exp) < new Date()) {
             throw new UnauthorizedException();
         }
-        const user = await this.useService.findOne(token.userId);
+        const user = await this.userService.findOne(token.userId);
         return this.generateTokens(user, agent);
     }
 
     async register(dto: RegisterDto) {
-        const user: User = await this.useService.findOne(dto.email).catch((err) => {
+        const user: User = await this.userService.findOne(dto.email).catch((err) => {
             this.logger.error(err);
             return null;
         });
         if (user) {
             throw new ConflictException('Пользователь с таким email уже зарегистрирован');
         }
-        return this.useService.save(dto).catch((err) => {
+        return this.userService.save(dto).catch((err) => {
             this.logger.error(err);
             return null;
         });
     }
 
     async login(dto: LoginDto, agent: string): Promise<Tokens> {
-        const user: User = await this.useService.findOne(dto.email, true).catch((err) => {
+        const user: User = await this.userService.findOne(dto.email, true).catch((err) => {
             this.logger.error(err);
             return null;
         });
@@ -98,5 +105,23 @@ export class AuthService {
 
     deleteRefreshToken(token: string) {
         return this.prismaService.token.delete({ where: { token } });
+    }
+
+    async googleAuth(email: string, agent: string) {
+        const userExists = await this.userService.findOne(email);
+        if (userExists) {
+            return this.generateTokens(userExists, agent);
+        }
+        const user = await this.userService.save({ email, provider: Provider.GOOGLE }).catch((err) => {
+            this.logger.error(err);
+            return null;
+        });
+        if (!user) {
+            throw new HttpException(
+                `Не получилось создать пользователя с email ${email} в Google auth`,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
+        return this.generateTokens(user, agent);
     }
 }
