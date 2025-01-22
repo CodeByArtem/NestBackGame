@@ -1,16 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-google-oauth20';
+import { Strategy } from 'passport-yandex';
 
 @Injectable()
-export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
+export class YandexStrategy extends PassportStrategy(Strategy, 'yandex') {
     constructor(private readonly configService: ConfigService) {
         super({
-            clientID: configService.get('GOOGLE_CLIENT_ID'), // получите это из Google Cloud Console
-            clientSecret: configService.get('GOOGLE_CLIENT_SECRET'), // получите это из Google Cloud Console
-            callbackURL: 'http://localhost:3000/api/auth/google/callback', // измените это на свой callback URL
-            scope: ['email', 'profile'],
+            clientID: configService.get('YANDEX_APP_ID'), // Замените на свой APP_ID
+            clientSecret: configService.get('YANDEX_APP_SECRET'), // Замените на свой APP_SECRET
+            callbackURL: 'http://localhost:3000/api/auth/yandex/callback', // Замените на свой callback URL
         });
     }
 
