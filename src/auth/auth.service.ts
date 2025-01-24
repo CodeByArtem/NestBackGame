@@ -79,18 +79,19 @@ export class AuthService {
                 userAgent: agent,
             },
         });
-        const token = _token?.token ?? null;
+        const token = _token?.token ?? v4(); // Если токен не найден, генерируется новый
+
         return this.prismaService.token.upsert({
             where: { token },
             update: {
-                token: v4(),
-                exp: add(new Date(), { months: 1 }),
+                token: v4(), // Генерируем новый токен для обновления
+                exp: add(new Date(), { months: 1 }), // Устанавливаем новый срок действия
             },
             create: {
-                token: v4(),
-                exp: add(new Date(), { months: 1 }),
-                userId,
-                userAgent: agent,
+                token: v4(), // Генерируем новый токен при создании
+                exp: add(new Date(), { months: 1 }), // Устанавливаем срок действия
+                userId, // Привязываем к пользователю
+                userAgent: agent, // Указываем агент пользователя
             },
         });
     }
