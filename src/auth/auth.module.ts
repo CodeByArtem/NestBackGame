@@ -8,10 +8,11 @@ import { options } from '@auth/config';
 import { STRTAGIES } from '@auth/strategies';
 import { GUARDS } from '@auth/guard';
 import { HttpModule } from '@nestjs/axios';
+import { PasswordResetModule } from './password-reset/password-reset.module';
 
 @Module({
     controllers: [AuthController],
     providers: [AuthService, ...STRTAGIES, ...GUARDS],
-    imports: [PassportModule, JwtModule.registerAsync(options()), UserModule, HttpModule],
+    imports: [PassportModule, JwtModule.registerAsync(options()), UserModule, HttpModule, PasswordResetModule],
 })
 export class AuthModule {}

@@ -4,6 +4,8 @@ import { Exclude } from 'class-transformer';
 export class UserResponse implements User {
     id: string;
     email: string;
+    resetPasswordToken: string;
+    resetPasswordTokenExpiration: Date;
 
     @Exclude()
     password: string;

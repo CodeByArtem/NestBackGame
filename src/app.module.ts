@@ -10,6 +10,7 @@ import { PostsModule } from './posts/posts.module';
 import { CommentsController } from './comments/comments.controller';
 import { CommentsService } from './comments/comments.service';
 import { CommentsModule } from './comments/comments.module';
+import { PasswordResetModule } from '@auth/password-reset/password-reset.module';
 
 @Module({
     imports: [
@@ -19,6 +20,7 @@ import { CommentsModule } from './comments/comments.module';
         ConfigModule.forRoot({ isGlobal: true }),
         PostsModule,
         CommentsModule,
+        PasswordResetModule,
     ],
     providers: [
         {

@@ -14,18 +14,20 @@ datasource db {
 }
 
 model User {
-  id        String    @id @default(uuid())
-  email     String    @unique
-  password  String?
-  provider  Provider?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-  roles     Role[]
-  Token     Token[]
-  isBlocked Boolean   @default(false) @map("is_blocked")
-  posts     Post[]    @relation("UserPosts")
-  comments  Comment[] @relation("UserComments")
-  likes     Like[]
+  id                           String    @id @default(uuid())
+  email                        String    @unique
+  password                     String?
+  provider                     Provider?
+  createdAt                    DateTime  @default(now()) @map("created_at")
+  updatedAt                    DateTime  @updatedAt @map("updated_at")
+  roles                        Role[]
+  Token                        Token[]
+  isBlocked                    Boolean   @default(false) @map("is_blocked")
+  posts                        Post[]    @relation("UserPosts")
+  comments                     Comment[] @relation("UserComments")
+  likes                        Like[]
+  resetPasswordToken           String? // Добавляем токен для сброса пароля
+  resetPasswordTokenExpiration DateTime? // Добавляем дату истечения токена
 
   @@map("users")
 }
