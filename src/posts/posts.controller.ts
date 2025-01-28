@@ -1,9 +1,21 @@
-import { Controller, Post, Body, Delete, Param, BadRequestException, Put, ValidationPipe } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Body,
+    Delete,
+    Param,
+    BadRequestException,
+    Put,
+    ValidationPipe,
+    Query,
+    Get,
+} from '@nestjs/common';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatedPostDto } from './dto/updated-post.dto';
 import { PostsService } from './posts.service';
 import { GetUser } from '@common/dicorators/get-user.decorator';
 import { User } from '@prisma/client';
+import { PaginationQueryDto } from './dto/pagination-query.dto';
 
 @Controller('posts')
 export class PostController {
@@ -41,5 +53,17 @@ export class PostController {
         }
 
         return updatedPost; // Возвращаем обновленный пост
+    }
+
+    @Get()
+    async getAllPosts(@Query() paginationQuery: PaginationQueryDto) {
+        const { page, limit } = paginationQuery;
+        return this.postsService.findAll(page, limit);
+    }
+
+    @Get('user')
+    async getPostsByUser(@Query() paginationQuery: PaginationQueryDto, @GetUser() user: User) {
+        const { page, limit } = paginationQuery;
+        return this.postsService.findAllByUser(user.id, page, limit);
     }
 }

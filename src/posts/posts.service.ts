@@ -65,4 +65,49 @@ export class PostsService {
         });
         return updatedPost;
     }
+
+    async findAll(page: number, limit: number) {
+        const skip = (page - 1) * limit;
+
+        const posts = await this.prisma.post.findMany({
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const totalPosts = await this.prisma.post.count();
+
+        return {
+            posts,
+            meta: {
+                totalPosts,
+                totalPages: Math.ceil(totalPosts / limit),
+                currentPage: page,
+            },
+        };
+    }
+
+    async findAllByUser(userId: string, page: number, limit: number) {
+        const skip = (page - 1) * limit;
+
+        const posts = await this.prisma.post.findMany({
+            where: { authorId: userId },
+            skip,
+            take: limit,
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const totalPosts = await this.prisma.post.count({
+            where: { authorId: userId },
+        });
+
+        return {
+            posts,
+            meta: {
+                totalPosts,
+                totalPages: Math.ceil(totalPosts / limit),
+                currentPage: page,
+            },
+        };
+    }
 }
