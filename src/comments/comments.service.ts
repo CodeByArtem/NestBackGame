@@ -45,6 +45,7 @@ export class CommentsService {
             skip, // Пропускаем количество комментариев, соответствующее предыдущим страницам
             take: limit, // Берем количество комментариев на текущей странице
             orderBy: { createdAt: 'asc' }, // Сортируем по дате создания
+            include: { likes: true },
         });
 
         const totalComments = await this.prisma.comment.count({
@@ -52,7 +53,10 @@ export class CommentsService {
         });
 
         return {
-            comments,
+            comments: comments.map((comment) => ({
+                ...comment,
+                likesCount: comment.likes.length,
+            })),
             meta: {
                 totalComments,
                 totalPages: Math.ceil(totalComments / limit),
