@@ -73,12 +73,16 @@ export class PostsService {
             skip,
             take: limit,
             orderBy: { createdAt: 'desc' },
+            include: { likes: true },
         });
 
         const totalPosts = await this.prisma.post.count();
 
         return {
-            posts,
+            posts: posts.map((post) => ({
+                ...post,
+                likesCount: post.likes.length,
+            })),
             meta: {
                 totalPosts,
                 totalPages: Math.ceil(totalPosts / limit),
@@ -95,6 +99,7 @@ export class PostsService {
             skip,
             take: limit,
             orderBy: { createdAt: 'desc' },
+            include: { likes: true },
         });
 
         const totalPosts = await this.prisma.post.count({
@@ -102,7 +107,10 @@ export class PostsService {
         });
 
         return {
-            posts,
+            posts: posts.map((post) => ({
+                ...post,
+                likesCount: post.likes.length, // Добавляем количество лайков
+            })),
             meta: {
                 totalPosts,
                 totalPages: Math.ceil(totalPosts / limit),

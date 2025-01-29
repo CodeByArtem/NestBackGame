@@ -11,6 +11,7 @@ import { CommentsController } from './comments/comments.controller';
 import { CommentsService } from './comments/comments.service';
 import { CommentsModule } from './comments/comments.module';
 import { PasswordResetModule } from '@auth/password-reset/password-reset.module';
+import { LikeModule } from './like/like.module';
 
 @Module({
     imports: [
@@ -21,6 +22,7 @@ import { PasswordResetModule } from '@auth/password-reset/password-reset.module'
         PostsModule,
         CommentsModule,
         PasswordResetModule,
+        LikeModule,
     ],
     providers: [
         {
