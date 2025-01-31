@@ -30,7 +30,15 @@ async function bootstrap() {
             whitelist: true, // удаление невалидных свойств из запроса
         }),
     );
-    app.enableCors();
+
+    // Настройка CORS
+    app.enableCors({
+        origin: 'http://localhost:3000', // Разрешаем запросы только с этого домена (например, с фронтенда на localhost:3000)
+        methods: 'GET,POST,PUT,DELETE', // Разрешаем только GET, POST, PUT, DELETE методы
+        allowedHeaders: 'Content-Type, Authorization', // Разрешаем только заголовки Content-Type и Authorization
+        credentials: true, // Разрешаем отправку cookies
+    });
+
     await app.listen(process.env.PORT ?? 3000);
 }
 
