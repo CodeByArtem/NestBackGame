@@ -1,43 +1,48 @@
-import { Injectable, Logger, UnauthorizedException, ConflictException, HttpException, HttpStatus } from '@nestjs/common';
-import { UserService } from '../user/user.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto, LoginDto } from './dto';
+import {
+    ConflictException,
+    HttpException,
+    HttpStatus,
+    Injectable,
+    Logger,
+    UnauthorizedException,
+} from '@nestjs/common';
+import { UserService } from '@user/user.service';
+import { JwtService } from '@nestjs/jwt';
+import { PrismaService } from '@prisma/prisma.service';
+import { Provider, Token, User } from '@prisma/client';
 import { compareSync } from 'bcrypt';
-import { v4 as uuidv4 } from 'uuid';
 import { add } from 'date-fns';
-import { Token, Tokens } from './types';
+import { v4 } from 'uuid';
+import { Tokens } from './interfaces';
+import { LoginDto, RegisterDto } from '@auth/dto';
 
 @Injectable()
 export class AuthService {
-    private readonly logger = new Logger(AuthService.name);
+    private readonly logger = new Logger('AuthService.name');
 
     constructor(
         private readonly userService: UserService,
+        private readonly jwtService: JwtService,
         private readonly prismaService: PrismaService,
     ) {}
 
     async refreshTokens(refreshToken: string, agent: string): Promise<Tokens> {
-        const token = await this.prismaService.token.findUnique({ where: { token: refreshToken } });
-
+        const token = await this.prismaService.token.delete({ where: { token: refreshToken } });
         if (!token || new Date(token.exp) < new Date()) {
-            if (token) await this.deleteRefreshToken(refreshToken);
             throw new UnauthorizedException();
         }
-
         const user = await this.userService.findOne(token.userId);
         return this.generateTokens(user, agent);
     }
 
     async register(dto: RegisterDto) {
-        const user = await this.userService.findOne(dto.email).catch((err) => {
+        const user: User = await this.userService.findOne(dto.email).catch((err) => {
             this.logger.error(err);
             return null;
         });
-
         if (user) {
             throw new ConflictException('Пользователь с таким email уже зарегистрирован');
         }
-
         return this.userService.save(dto).catch((err) => {
             this.logger.error(err);
             return null;
@@ -45,73 +50,75 @@ export class AuthService {
     }
 
     async login(dto: LoginDto, agent: string): Promise<Tokens> {
-        const user = await this.userService.findOne(dto.email, true).catch((err) => {
+        const user: User = await this.userService.findOne(dto.email, true).catch((err) => {
             this.logger.error(err);
             return null;
         });
-
         if (!user || !compareSync(dto.password, user.password)) {
-            throw new UnauthorizedException('Неверный логин или пароль');
+            throw new UnauthorizedException('Не верный логин или пароль');
         }
-
         return this.generateTokens(user, agent);
     }
 
-    private async generateTokens(user: any, agent: string): Promise<Tokens> {
-        const accessToken = this.jwtService.sign({
-            id: user.id,
-            email: user.email,
-            roles: user.roles,
-        });
-
+    private async generateTokens(user: User, agent: string): Promise<Tokens> {
+        const accessToken =
+            'Bearer ' +
+            this.jwtService.sign({
+                id: user.id,
+                email: user.email,
+                roles: user.roles,
+            });
         const refreshToken = await this.getRefreshToken(user.id, agent);
-
         return { accessToken, refreshToken };
     }
 
     private async getRefreshToken(userId: string, agent: string): Promise<Token> {
-        const existingToken = await this.prismaService.token.findFirst({
-            where: { userId, userAgent: agent },
+        const _token = await this.prismaService.token.findFirst({
+            where: {
+                userId,
+                userAgent: agent,
+            },
         });
+        const token = _token?.token ?? v4(); // Если токен не найден, генерируется новый
 
-        if (existingToken) {
-            return existingToken;
-        }
-
-        const newToken = {
-            token: uuidv4(),
-            exp: add(new Date(), { months: 1 }),
-            userId,
-            userAgent: agent,
-        };
-
-        await this.prismaService.token.create({ data: newToken });
-
-        return newToken;
+        return this.prismaService.token.upsert({
+            where: { token },
+            update: {
+                token: v4(), // Генерируем новый токен для обновления
+                exp: add(new Date(), { months: 1 }), // Устанавливаем новый срок действия
+            },
+            create: {
+                token: v4(), // Генерируем новый токен при создании
+                exp: add(new Date(), { months: 1 }), // Устанавливаем срок действия
+                userId, // Привязываем к пользователю
+                userAgent: agent, // Указываем агент пользователя
+            },
+        });
     }
 
-    async deleteRefreshToken(token: string) {
-        await this.prismaService.token.delete({ where: { token } }).catch(() => null);
+    deleteRefreshToken(token: string) {
+        return this.prismaService.token.delete({ where: { token } });
     }
 
-    async providerAuth(email: string, agent: string, provider: string) {
-        let user = await this.userService.findOne(email);
-
-        if (!user) {
-            user = await this.userService.save({ email, provider }).catch((err) => {
+    async providerAuth(email: string, agent: string, provider: Provider) {
+        const userExists = await this.userService.findOne(email);
+        if (userExists) {
+            const user = await this.userService.save({ email: email, provider: provider }).catch((err) => {
                 this.logger.error(err);
                 return null;
             });
-
-            if (!user) {
-                throw new HttpException(
-                    `Не удалось создать пользователя с email ${email} в Google auth`,
-                    HttpStatus.BAD_REQUEST,
-                );
-            }
+            return this.generateTokens(user, agent);
         }
-
+        const user = await this.userService.save({ email, provider }).catch((err) => {
+            this.logger.error(err);
+            return null;
+        });
+        if (!user) {
+            throw new HttpException(
+                Не получилось создать пользователя с email ${email} в Google auth,
+                HttpStatus.BAD_REQUEST,
+            );
+        }
         return this.generateTokens(user, agent);
     }
 }
-
