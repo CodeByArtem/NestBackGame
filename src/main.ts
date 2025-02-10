@@ -33,7 +33,7 @@ async function bootstrap() {
 
     // Настройка CORS
     app.enableCors({
-        origin: ['http://localhost:3000', 'https://neuphoria-eta.vercel.app'],
+        origin: ['https://localhost:3000', 'https://neuphoria-eta.vercel.app'],
         methods: 'GET,POST,PUT,DELETE', // Разрешаем только GET, POST, PUT, DELETE методы
         allowedHeaders: 'Content-Type, Authorization', // Разрешаем только заголовки Content-Type и Authorization
         credentials: true, // Разрешаем отправку cookies
