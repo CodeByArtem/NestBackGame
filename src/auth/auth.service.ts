@@ -1,20 +1,11 @@
-import {
-    ConflictException,
-    HttpException,
-    HttpStatus,
-    Injectable,
-    Logger,
-    UnauthorizedException,
-} from '@nestjs/common';
-import { UserService } from '@user/user.service';
-import { JwtService } from '@nestjs/jwt';
-import { PrismaService } from '@prisma/prisma.service';
-import { Provider, Token, User } from '@prisma/client';
+import { Injectable, Logger, UnauthorizedException, ConflictException, HttpException, HttpStatus } from '@nestjs/common';
+import { UserService } from '../user/user.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { RegisterDto, LoginDto } from './dto';
 import { compareSync } from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
 import { add } from 'date-fns';
-import { v4 } from 'uuid';
-import { Tokens } from './interfaces';
-import { LoginDto, RegisterDto } from '@auth/dto';
+import { Token, Tokens } from './types';
 
 @Injectable()
 export class AuthService {
@@ -22,7 +13,6 @@ export class AuthService {
 
     constructor(
         private readonly userService: UserService,
-        private readonly jwtService: JwtService,
         private readonly prismaService: PrismaService,
     ) {}
 
@@ -67,38 +57,35 @@ export class AuthService {
         return this.generateTokens(user, agent);
     }
 
-    private async generateTokens(user: User, agent: string): Promise<Tokens> {
-        const accessToken =
-            'Bearer ' +
-            this.jwtService.sign({
-                id: user.id,
-                email: user.email,
-                roles: user.roles,
-            });
+    private async generateTokens(user: any, agent: string): Promise<Tokens> {
+        const accessToken = this.jwtService.sign({
+            id: user.id,
+            email: user.email,
+            roles: user.roles,
+        });
 
         const refreshToken = await this.getRefreshToken(user.id, agent);
 
         return { accessToken, refreshToken };
     }
 
-    private async getRefreshToken(userId: string, agent: string): Promise<string> {
+    private async getRefreshToken(userId: string, agent: string): Promise<Token> {
         const existingToken = await this.prismaService.token.findFirst({
             where: { userId, userAgent: agent },
         });
 
         if (existingToken) {
-            return existingToken.token;
+            return existingToken;
         }
 
-        const newToken = v4();
-        await this.prismaService.token.create({
-            data: {
-                token: newToken,
-                exp: add(new Date(), { months: 1 }),
-                userId,
-                userAgent: agent,
-            },
-        });
+        const newToken = {
+            token: uuidv4(),
+            exp: add(new Date(), { months: 1 }),
+            userId,
+            userAgent: agent,
+        };
+
+        await this.prismaService.token.create({ data: newToken });
 
         return newToken;
     }
@@ -107,7 +94,7 @@ export class AuthService {
         await this.prismaService.token.delete({ where: { token } }).catch(() => null);
     }
 
-    async providerAuth(email: string, agent: string, provider: Provider) {
+    async providerAuth(email: string, agent: string, provider: string) {
         let user = await this.userService.findOne(email);
 
         if (!user) {
@@ -127,3 +114,4 @@ export class AuthService {
         return this.generateTokens(user, agent);
     }
 }
+
