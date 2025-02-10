@@ -109,7 +109,7 @@ export class AuthController {
             httpOnly: true,
             sameSite: 'none',
             expires: new Date(tokens.refreshToken.exp),
-            secure: this.configService.get('NODE_ENV', 'development') === 'production',
+            secure: true,
             path: '/',
         });
         res.status(HttpStatus.CREATED).json({ accessToken: tokens.accessToken });
