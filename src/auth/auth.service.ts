@@ -18,7 +18,7 @@ import { LoginDto, RegisterDto } from '@auth/dto';
 
 @Injectable()
 export class AuthService {
-    private readonly logger = new Logger('AuthService.name');
+    private readonly logger = new Logger('AuthService');
 
     constructor(
         private readonly userService: UserService,
@@ -27,11 +27,18 @@ export class AuthService {
     ) {}
 
     async refreshTokens(refreshToken: string, agent: string): Promise<Tokens> {
-        const token = await this.prismaService.token.delete({ where: { token: refreshToken } });
-        if (!token || new Date(token.exp) < new Date()) {
+        // Ищем токен без удаления сразу
+        const tokenRecord = await this.prismaService.token.findUnique({ where: { token: refreshToken } });
+        if (!tokenRecord || new Date(tokenRecord.exp) < new Date()) {
+            if (tokenRecord) {
+                await this.deleteRefreshToken(refreshToken);
+            }
             throw new UnauthorizedException();
         }
-        const user = await this.userService.findOne(token.userId);
+        // Удаляем токен, чтобы он не мог быть использован повторно
+        await this.deleteRefreshToken(refreshToken);
+
+        const user = await this.userService.findOne(tokenRecord.userId);
         return this.generateTokens(user, agent);
     }
 
@@ -68,30 +75,33 @@ export class AuthService {
                 email: user.email,
                 roles: user.roles,
             });
-        const refreshToken = await this.getRefreshToken(user.id, agent);
-        return { accessToken, refreshToken };
+        const refreshTokenObj = await this.getRefreshToken(user.id, agent);
+        return { accessToken, refreshToken: refreshTokenObj };
     }
 
     private async getRefreshToken(userId: string, agent: string): Promise<Token> {
-        const _token = await this.prismaService.token.findFirst({
-            where: {
+        // Пытаемся найти существующий токен для данного пользователя и агента
+        const existingToken = await this.prismaService.token.findFirst({
+            where: { userId, userAgent: agent },
+        });
+
+        if (existingToken) {
+            // Обновляем существующий токен: генерируем новое значение и новый срок действия
+            return this.prismaService.token.update({
+                where: { token: existingToken.token },
+                data: {
+                    token: v4(),
+                    exp: add(new Date(), { months: 1 }),
+                },
+            });
+        }
+        // Если не найден, создаем новый токен
+        return this.prismaService.token.create({
+            data: {
+                token: v4(),
+                exp: add(new Date(), { months: 1 }),
                 userId,
                 userAgent: agent,
-            },
-        });
-        const token = _token?.token ?? v4(); // Если токен не найден, генерируется новый
-
-        return this.prismaService.token.upsert({
-            where: { token },
-            update: {
-                token: v4(), // Генерируем новый токен для обновления
-                exp: add(new Date(), { months: 1 }), // Устанавливаем новый срок действия
-            },
-            create: {
-                token: v4(), // Генерируем новый токен при создании
-                exp: add(new Date(), { months: 1 }), // Устанавливаем срок действия
-                userId, // Привязываем к пользователю
-                userAgent: agent, // Указываем агент пользователя
             },
         });
     }
@@ -101,23 +111,18 @@ export class AuthService {
     }
 
     async providerAuth(email: string, agent: string, provider: Provider) {
-        const userExists = await this.userService.findOne(email);
-        if (userExists) {
-            const user = await this.userService.save({ email: email, provider: provider }).catch((err) => {
+        let user = await this.userService.findOne(email);
+        if (!user) {
+            user = await this.userService.save({ email, provider }).catch((err) => {
                 this.logger.error(err);
                 return null;
             });
-            return this.generateTokens(user, agent);
-        }
-        const user = await this.userService.save({ email, provider }).catch((err) => {
-            this.logger.error(err);
-            return null;
-        });
-        if (!user) {
-            throw new HttpException(
-                Не получилось создать пользователя с email ${email} в Google auth,
-                HttpStatus.BAD_REQUEST,
-            );
+            if (!user) {
+                throw new HttpException(
+                    `Не получилось создать пользователя с email ${email} в Google auth`,
+                    HttpStatus.BAD_REQUEST,
+                );
+            }
         }
         return this.generateTokens(user, agent);
     }
