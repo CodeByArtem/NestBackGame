@@ -66,6 +66,22 @@ export class PostsService {
         return updatedPost;
     }
 
+    async findOne(postId: string) {
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+            include: { likes: true },
+        });
+
+        if (!post) {
+            throw new BadRequestException('Post not found');
+        }
+
+        return {
+            ...post,
+            likesCount: post.likes.length,
+        };
+    }
+
     async findAll(page: number, limit: number) {
         const skip = (page - 1) * limit;
 

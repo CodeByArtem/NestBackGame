@@ -87,4 +87,12 @@ export class PostController {
         const { page, limit } = paginationQuery;
         return this.postsService.findAllByUser(user.id, page, limit);
     }
+
+    @Get(':id')
+    @ApiOperation({ summary: 'Get a single post by ID' })
+    @ApiResponse({ status: 200, description: 'The post has been successfully retrieved.' })
+    @ApiResponse({ status: 400, description: 'Post not found.' })
+    async getPost(@Param('id') postId: string) {
+        return this.postsService.findOne(postId);
+    }
 }
