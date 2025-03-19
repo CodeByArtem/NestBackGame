@@ -11,19 +11,13 @@ export class LikeService {
             throw new ForbiddenException('Either postId or commentId must be provided');
         }
 
-        // Проверка существования лайка для поста или комментария
-        let like;
-        if (postId) {
-            like = await this.prismaService.like.findFirst({
-                where: { userId, postId },
-            });
-        } else if (commentId) {
-            like = await this.prismaService.like.findFirst({
-                where: { userId, commentId },
-            });
-        }
-
-        return like;
+        return await this.prismaService.like.findFirst({
+            where: {
+                userId,
+                ...(postId ? { postId } : {}),
+                ...(commentId ? { commentId } : {}),
+            },
+        });
     }
 
     async create(userId: string, createLikeDto: CreateLikeDto) {
@@ -40,14 +34,9 @@ export class LikeService {
 
         try {
             return await this.prismaService.like.create({
-                data: {
-                    userId,
-                    postId,
-                    commentId,
-                },
+                data: { userId, postId, commentId },
             });
         } catch (error) {
-            // Используем InternalServerErrorException вместо базовой ошибки
             throw new InternalServerErrorException('Error creating like: ' + error.message);
         }
     }
@@ -69,12 +58,10 @@ export class LikeService {
                 where: { id: like.id },
             });
         } catch (error) {
-            // Используем InternalServerErrorException вместо базовой ошибки
             throw new InternalServerErrorException('Error deleting like: ' + error.message);
         }
     }
 
-    // Лайки для всех постов
     async getLikesForAllPosts() {
         try {
             const likesData = await this.prismaService.like.groupBy({
@@ -91,7 +78,6 @@ export class LikeService {
         }
     }
 
-    // Лайки для одного поста
     async getLikesForSinglePost(postId: string) {
         try {
             const postExists = await this.prismaService.post.findUnique({
