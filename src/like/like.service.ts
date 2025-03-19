@@ -73,4 +73,42 @@ export class LikeService {
             throw new InternalServerErrorException('Error deleting like: ' + error.message);
         }
     }
+
+    // Лайки для всех постов
+    async getLikesForAllPosts() {
+        try {
+            const likesData = await this.prismaService.like.groupBy({
+                by: ['postId'],
+                _count: { postId: true },
+            });
+
+            return likesData.map((like) => ({
+                postId: like.postId,
+                likes: like._count.postId,
+            }));
+        } catch (error) {
+            throw new InternalServerErrorException('Error fetching likes data: ' + error.message);
+        }
+    }
+
+    // Лайки для одного поста
+    async getLikesForSinglePost(postId: string) {
+        try {
+            const postExists = await this.prismaService.post.findUnique({
+                where: { id: postId },
+            });
+
+            if (!postExists) {
+                throw new NotFoundException('Post not found');
+            }
+
+            const likesCount = await this.prismaService.like.count({
+                where: { postId },
+            });
+
+            return { postId, likes: likesCount };
+        } catch (error) {
+            throw new InternalServerErrorException('Error fetching like data: ' + error.message);
+        }
+    }
 }
