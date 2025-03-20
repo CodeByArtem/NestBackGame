@@ -97,4 +97,40 @@ export class LikeService {
             throw new InternalServerErrorException('Error fetching like data: ' + error.message);
         }
     }
+
+    async getLikesForAllComments() {
+        try {
+            const likesData = await this.prismaService.like.groupBy({
+                by: ['commentId'],
+                _count: { commentId: true },
+            });
+
+            return likesData.map((like) => ({
+                commentId: like.commentId,
+                likes: like._count.commentId,
+            }));
+        } catch (error) {
+            throw new InternalServerErrorException('Error fetching comments likes data: ' + error.message);
+        }
+    }
+
+    async getLikesForSingleComment(commentId: string) {
+        try {
+            const commentExists = await this.prismaService.comment.findUnique({
+                where: { id: commentId },
+            });
+
+            if (!commentExists) {
+                throw new NotFoundException('Comment not found');
+            }
+
+            const likesCount = await this.prismaService.like.count({
+                where: { commentId },
+            });
+
+            return { commentId, likes: likesCount };
+        } catch (error) {
+            throw new InternalServerErrorException('Error fetching comment like data: ' + error.message);
+        }
+    }
 }

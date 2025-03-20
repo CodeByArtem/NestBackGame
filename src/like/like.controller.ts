@@ -75,4 +75,34 @@ export class LikeController {
 
         return likesData;
     }
+
+    /**
+     * Получить количество лайков для всех комментариев
+     * @returns Список лайков для всех комментариев
+     */
+    @ApiOperation({ summary: 'Get like count for all comments' })
+    @ApiResponse({ status: 200, description: 'Likes count for all comments' })
+    @Get('/comments/likes-count')
+    getLikesForAllComments() {
+        return this.likeService.getLikesForAllComments();
+    }
+
+    /**
+     * Получить количество лайков для одного комментария по ID
+     * @param commentId ID комментария
+     * @returns Количество лайков для указанного комментария
+     */
+    @ApiOperation({ summary: 'Get like count for a single comment' })
+    @ApiResponse({ status: 200, description: 'Likes count for the specified comment' })
+    @ApiResponse({ status: 404, description: 'Comment not found' })
+    @Get('/comments/:commentId/likes-count')
+    async getLikesForSingleComment(@Param('commentId') commentId: string) {
+        const likesData = await this.likeService.getLikesForSingleComment(commentId);
+
+        if (!likesData) {
+            throw new NotFoundException('Comment not found');
+        }
+
+        return likesData;
+    }
 }
