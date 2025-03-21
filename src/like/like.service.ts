@@ -29,17 +29,18 @@ export class LikeService {
 
         // Проверка, ставил ли уже пользователь лайк
         const existingLike = await this.checkLikeExists(userId, postId, commentId);
+
         if (existingLike) {
-            // Если лайк существует, то удаляем его (лайк снимается)
-            await this.delete(userId, createLikeDto);
-            return { message: 'Like removed successfully' };
+            // Если лайк уже существует, возвращаем сообщение
+            return { message: 'You have already liked this post/comment' };
         }
 
         // Если лайк не найден, добавляем новый
         try {
-            return await this.prismaService.like.create({
+            const newLike = await this.prismaService.like.create({
                 data: { userId, postId, commentId },
             });
+            return { message: 'Like added successfully', like: newLike };
         } catch (error) {
             throw new InternalServerErrorException('Error creating like: ' + error.message);
         }
