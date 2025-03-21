@@ -6,7 +6,7 @@ import { CreateLikeDto } from './dto/create-like.dto';
 export class LikeService {
     constructor(private readonly prismaService: PrismaService) {}
 
-    private async checkLikeExists(userId: string, postId?: string, commentId?: string) {
+    async checkLikeExists(userId: string, postId?: string, commentId?: string) {
         if (!postId && !commentId) {
             throw new ForbiddenException('Either postId or commentId must be provided');
         }
@@ -27,11 +27,15 @@ export class LikeService {
             throw new ForbiddenException('You must provide either postId or commentId');
         }
 
+        // Проверка, ставил ли уже пользователь лайк
         const existingLike = await this.checkLikeExists(userId, postId, commentId);
         if (existingLike) {
-            throw new ForbiddenException('You already liked this post or comment');
+            // Если лайк существует, то удаляем его (лайк снимается)
+            await this.delete(userId, createLikeDto);
+            return { message: 'Like removed successfully' };
         }
 
+        // Если лайк не найден, добавляем новый
         try {
             return await this.prismaService.like.create({
                 data: { userId, postId, commentId },

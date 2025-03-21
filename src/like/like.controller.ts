@@ -1,4 +1,13 @@
-import { Controller, Post, Body, Delete, Get, Param, NotFoundException } from '@nestjs/common';
+import {
+    Controller,
+    Post,
+    Body,
+    Delete,
+    Get,
+    Param,
+    NotFoundException,
+    InternalServerErrorException,
+} from '@nestjs/common';
 import { LikeService } from './like.service';
 import { CreateLikeDto } from './dto/create-like.dto';
 import { GetUser } from '@common/dicorators/get-user.decorator';
@@ -16,15 +25,26 @@ export class LikeController {
      * @param user Пользователь, который ставит лайк
      * @returns Результат создания лайка
      */
-    @ApiOperation({ summary: 'Create a like' })
+    @ApiOperation({ summary: 'Create a like for post or comment' })
     @ApiBody({ type: CreateLikeDto })
     @ApiResponse({ status: 201, description: 'Like created successfully' })
     @Post()
     async createLike(@Body() createLikeDto: CreateLikeDto, @GetUser() user: User) {
         try {
+            // Проверка на существование лайка
+            const existingLike = await this.likeService.checkLikeExists(
+                user.id,
+                createLikeDto.postId,
+                createLikeDto.commentId,
+            );
+            if (existingLike) {
+                throw new Error('You have already liked this post/comment');
+            }
+
+            // Если лайк не найден, добавляем новый
             return await this.likeService.create(user.id, createLikeDto);
         } catch (error) {
-            throw error;
+            throw new InternalServerErrorException(error.message || 'Error while creating like');
         }
     }
 
@@ -34,7 +54,7 @@ export class LikeController {
      * @param user Пользователь, который удаляет лайк
      * @returns Результат удаления лайка
      */
-    @ApiOperation({ summary: 'Delete a like' })
+    @ApiOperation({ summary: 'Delete a like for post or comment' })
     @ApiBody({ type: CreateLikeDto })
     @ApiResponse({ status: 200, description: 'Like deleted successfully' })
     @Delete()
