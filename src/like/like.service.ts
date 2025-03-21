@@ -20,50 +20,28 @@ export class LikeService {
         });
     }
 
-    async create(userId: string, createLikeDto: CreateLikeDto) {
+    async toggleLike(userId: string, createLikeDto: CreateLikeDto) {
         const { postId, commentId } = createLikeDto;
 
         if (!postId && !commentId) {
             throw new ForbiddenException('You must provide either postId or commentId');
         }
 
-        // Проверка, ставил ли уже пользователь лайк
         const existingLike = await this.checkLikeExists(userId, postId, commentId);
 
         if (existingLike) {
-            // Если лайк уже существует, возвращаем сообщение
-            return { message: 'You have already liked this post/comment' };
-        }
+            if (existingLike.userId !== userId) {
+                throw new ForbiddenException('You can only remove your own likes');
+            }
 
-        // Если лайк не найден, добавляем новый
-        try {
-            const newLike = await this.prismaService.like.create({
-                data: { userId, postId, commentId },
-            });
-            return { message: 'Like added successfully', like: newLike };
-        } catch (error) {
-            throw new InternalServerErrorException('Error creating like: ' + error.message);
-        }
-    }
+            await this.prismaService.like.delete({ where: { id: existingLike.id } });
+            const count = await this.prismaService.like.count({ where: { postId, commentId } });
+            return { liked: false, likesCount: count };
+        } else {
+            await this.prismaService.like.create({ data: { userId, postId, commentId } });
 
-    async delete(userId: string, createLikeDto: CreateLikeDto) {
-        const { postId, commentId } = createLikeDto;
-
-        if (!postId && !commentId) {
-            throw new ForbiddenException('You must provide either postId or commentId');
-        }
-
-        const like = await this.checkLikeExists(userId, postId, commentId);
-        if (!like) {
-            throw new NotFoundException('Like not found');
-        }
-
-        try {
-            return await this.prismaService.like.delete({
-                where: { id: like.id },
-            });
-        } catch (error) {
-            throw new InternalServerErrorException('Error deleting like: ' + error.message);
+            const count = await this.prismaService.like.count({ where: { postId, commentId } });
+            return { liked: true, likesCount: count };
         }
     }
 
@@ -85,18 +63,13 @@ export class LikeService {
 
     async getLikesForSinglePost(postId: string) {
         try {
-            const postExists = await this.prismaService.post.findUnique({
-                where: { id: postId },
-            });
+            const postExists = await this.prismaService.post.findUnique({ where: { id: postId } });
 
             if (!postExists) {
                 throw new NotFoundException('Post not found');
             }
 
-            const likesCount = await this.prismaService.like.count({
-                where: { postId },
-            });
-
+            const likesCount = await this.prismaService.like.count({ where: { postId } });
             return { postId, likes: likesCount };
         } catch (error) {
             throw new InternalServerErrorException('Error fetching like data: ' + error.message);
@@ -121,18 +94,13 @@ export class LikeService {
 
     async getLikesForSingleComment(commentId: string) {
         try {
-            const commentExists = await this.prismaService.comment.findUnique({
-                where: { id: commentId },
-            });
+            const commentExists = await this.prismaService.comment.findUnique({ where: { id: commentId } });
 
             if (!commentExists) {
                 throw new NotFoundException('Comment not found');
             }
 
-            const likesCount = await this.prismaService.like.count({
-                where: { commentId },
-            });
-
+            const likesCount = await this.prismaService.like.count({ where: { commentId } });
             return { commentId, likes: likesCount };
         } catch (error) {
             throw new InternalServerErrorException('Error fetching comment like data: ' + error.message);
